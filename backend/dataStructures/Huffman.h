@@ -119,7 +119,7 @@ private:
         for(int i = 0; i < bits.length(); i += 8){
             unsigned char byte = 0;
             for(int j = 0; j < 8 && (i + j) < bits.length(); j++){
-                if(bits[i + j]){
+                if(bits[i + j]){    
                     byte |= (1 << (7 - j));
                 }
             }
