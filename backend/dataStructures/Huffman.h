@@ -128,6 +128,39 @@ private:
         return bytes;
     }
 
+    // Tree wire format, one byte per node plus one payload byte per leaf:
+    //   0            -> null child
+    //   1, <byte>     -> leaf holding <byte>
+    //   2             -> internal node, followed by serialized left then right
+    // A 3-way marker (rather than "just omit null children") is required
+    // because a single-symbol input produces a root with a left child and
+    // no right child — omitting absent children would desync the reader.
+    void serializeTreeNode(HuffmanNode* node, Vector<unsigned char>& out){
+        if(!node){ out.push_back(0); return; }
+        if(node->isLeaf()){
+            out.push_back(1);
+            out.push_back(node->ch);
+            return;
+        }
+        out.push_back(2);
+        serializeTreeNode(node->left, out);
+        serializeTreeNode(node->right, out);
+    }
+
+    HuffmanNode* deserializeTreeNode(const Vector<unsigned char>& data, int& pos){
+        if(pos >= data.length()) return nullptr;
+        unsigned char marker = data[pos++];
+        if(marker == 0) return nullptr;
+        if(marker == 1){
+            unsigned char ch = data[pos++];
+            return new HuffmanNode(ch, 0);
+        }
+        HuffmanNode* node = new HuffmanNode('\0', 0);
+        node->left = deserializeTreeNode(data, pos);
+        node->right = deserializeTreeNode(data, pos);
+        return node;
+    }
+
     Vector<bool> unpackBits(const Vector<unsigned char>& bytes){
         Vector<bool> bits;
         for(int i = 0; i < bytes.length(); i++){
@@ -173,6 +206,21 @@ public:
         }
 
         return packBits(encodedBits);
+    }
+
+    // decode() only ever walks `root`, so a tree built by a *different*
+    // Huffman object (e.g. after loading from disk in a fresh process) can
+    // still decode data encoded here, as long as it's restored via these.
+    Vector<unsigned char> serializeTree(){
+        Vector<unsigned char> out;
+        serializeTreeNode(root, out);
+        return out;
+    }
+
+    void loadTree(const Vector<unsigned char>& treeData){
+        destroyTree(root);
+        int pos = 0;
+        root = deserializeTreeNode(treeData, pos);
     }
 
     Vector<unsigned char> decode(const Vector<unsigned char>& encoded, int originalSize){

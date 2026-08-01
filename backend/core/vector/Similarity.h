@@ -13,7 +13,13 @@ public:
             magA += a[i] * a[i];
             magB += b[i] * b[i];
         }
-        return dot / (sqrt(magA) * sqrt(magB));
+        float sim = dot / (sqrt(magA) * sqrt(magB));
+        // Cosine similarity is mathematically bounded to [-1, 1]; floating
+        // point rounding can push a self-similarity a hair past 1.0 (or past
+        // -1.0 for near-opposite vectors) without this.
+        if (sim > 1.0f) return 1.0f;
+        if (sim < -1.0f) return -1.0f;
+        return sim;
     }
     
     static float euclideanDistance(const Vector<float>& a, const Vector<float>& b) {

@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev cmake
+
+      - name: Run test suite (g++ directly, no build system)
+        run: ./run_tests.sh
+        env:
+          # Optional: set a GEMINI_API_KEY repo secret to also exercise
+          # test_embedding against the live API. Without it, run_tests.sh
+          # skips that one test and still passes.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: CMake configure
+        run: cmake -S . -B build
+
+      - name: CMake build
+        run: cmake --build build --parallel
+
+      - name: Run ctest
+        run: ctest --test-dir build --output-on-failure

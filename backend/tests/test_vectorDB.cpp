@@ -215,23 +215,117 @@ void testSimilarityScores() {
     }
 }
 
+void testSoftDeleteExcludedFromSearch() {
+    cout << "\n=== Test 7: Soft Delete Excluded From Search ===" << endl;
+
+    VectorDB db;
+    SearchEngine engine(&db);
+
+    Vector<float> v1 = normalizeVector(generateRandomVector(128));
+
+    int id0 = db.insert(v1);
+    int id1 = db.insert(createSimilarVector(v1, 0.05f)); // near-duplicate of v1
+    db.insert(generateRandomVector(128));
+
+    cout << "size(): " << db.size() << ", activeSize(): " << db.activeSize() << " (expected both 3)" << endl;
+
+    bool removed = db.remove(id1);
+    cout << "Removed id " << id1 << ": " << (removed ? "OK" : "FAILED") << endl;
+    cout << "size(): " << db.size() << " (expected: 3, unchanged), activeSize(): " << db.activeSize() << " (expected: 2)" << endl;
+
+    Vector<Pair<int, float>> results = engine.search(v1, 3);
+    bool sawDeleted = false;
+    for (int i = 0; i < results.length(); i++) {
+        if (results[i].key == id1) sawDeleted = true;
+    }
+
+    cout << "Results returned: " << results.length() << " (expected: 2, id " << id1 << " excluded)" << endl;
+    if (results.length() == 2 && !sawDeleted && results[0].key == id0) {
+        cout << "PASS: deleted vector excluded from search results" << endl;
+    } else {
+        cout << "FAIL: deleted vector should never appear in search results" << endl;
+    }
+
+    bool removedAgain = db.remove(9999);
+    cout << (!removedAgain ? "PASS" : "FAIL") << ": removing a nonexistent id returns false" << endl;
+}
+
+void testUpdateChangesEmbedding() {
+    cout << "\n=== Test 8: Update Changes Embedding ===" << endl;
+
+    VectorDB db;
+    SearchEngine engine(&db);
+
+    Vector<float> original = normalizeVector(generateRandomVector(128));
+    Vector<float> replacement = normalizeVector(generateRandomVector(128));
+
+    int id = db.insert(original);
+    db.insert(generateRandomVector(128));
+
+    bool updated = db.update(id, replacement);
+    cout << "Update id " << id << ": " << (updated ? "OK" : "FAILED") << endl;
+
+    Vector<Pair<int, float>> results = engine.search(replacement, 1);
+    if (updated && results.length() == 1 && results[0].key == id && results[0].value > 0.99f) {
+        cout << "PASS: search now finds the item by its new embedding" << endl;
+    } else {
+        cout << "FAIL: update should replace the embedding used for search" << endl;
+    }
+
+    bool updatedMissing = db.update(9999, replacement);
+    cout << (!updatedMissing ? "PASS" : "FAIL") << ": updating a nonexistent id returns false" << endl;
+}
+
+void testMetadataFilter() {
+    cout << "\n=== Test 9: Metadata Filtering ===" << endl;
+
+    VectorDB db;
+    SearchEngine engine(&db);
+
+    Vector<float> base = normalizeVector(generateRandomVector(128));
+
+    int idFruit = db.insert(base);
+    db.get(idFruit)->setMetadata("category", "fruit");
+
+    int idVeggie = db.insert(createSimilarVector(base, 0.05f)); // near-duplicate, different category
+    db.get(idVeggie)->setMetadata("category", "vegetable");
+
+    db.insert(generateRandomVector(128)); // no metadata at all
+
+    MetadataFilter fruitOnly("category", "fruit");
+    Vector<Pair<int, float>> results = engine.search(base, 3, &fruitOnly);
+
+    cout << "Query with category=fruit filter returned " << results.length() << " result(s) (expected: 1)" << endl;
+    if (results.length() == 1 && results[0].key == idFruit) {
+        cout << "PASS: only the matching-metadata item was returned" << endl;
+    } else {
+        cout << "FAIL: filter should restrict results to category=fruit" << endl;
+    }
+
+    Vector<Pair<int, float>> unfiltered = engine.search(base, 3);
+    cout << (unfiltered.length() == 3 ? "PASS" : "FAIL") << ": no filter (nullptr) still returns everything" << endl;
+}
+
 int main() {
     srand(time(0));
-    
+
     cout << "====================================" << endl;
     cout << "Search Engine Test Suite (128D)" << endl;
     cout << "====================================" << endl;
-    
+
     testBasicSearch();
     testTopKRetrieval();
     testEmptyDatabase();
     testSingleVector();
     testSimilarityScores();
     testLargeDatabase();
-    
+    testSoftDeleteExcludedFromSearch();
+    testUpdateChangesEmbedding();
+    testMetadataFilter();
+
     cout << "\n====================================" << endl;
     cout << "All tests completed!" << endl;
     cout << "====================================" << endl;
-    
+
     return 0;
 }

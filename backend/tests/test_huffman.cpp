@@ -195,6 +195,60 @@ void testEmptyData() {
     cout << endl;
 }
 
+void testTreeSerializationCrossObject() {
+    cout << "=== Test 7: Tree Serialization (decode with a different object) ===" << endl;
+
+    Huffman encoder;
+    Vector<unsigned char> data;
+    const char* text = "the quick brown fox jumps over the lazy dog";
+    for (int i = 0; text[i] != '\0'; i++) data.push_back(text[i]);
+
+    int originalSize = data.length();
+    Vector<unsigned char> encoded = encoder.encode(data);
+    Vector<unsigned char> treeBytes = encoder.serializeTree();
+
+    cout << "Serialized tree: " << treeBytes.length() << " bytes" << endl;
+
+    // Simulates loading from disk in a fresh process: a brand new Huffman
+    // object, with no relation to `encoder`, decoding via a loaded tree.
+    Huffman decoder;
+    decoder.loadTree(treeBytes);
+    Vector<unsigned char> decoded = decoder.decode(encoded, originalSize);
+
+    bool match = decoded.length() == data.length();
+    for (int i = 0; match && i < data.length(); i++) {
+        if (decoded[i] != data[i]) match = false;
+    }
+    cout << (match ? "PASS" : "FAIL") << ": cross-object decode via serialized tree reproduces the original text" << endl;
+    cout << endl;
+}
+
+void testTreeSerializationSingleSymbol() {
+    cout << "=== Test 8: Tree Serialization (single-symbol edge case) ===" << endl;
+
+    Huffman encoder;
+    Vector<unsigned char> data;
+    for (int i = 0; i < 20; i++) data.push_back('Z'); // only one distinct symbol
+
+    int originalSize = data.length();
+    Vector<unsigned char> encoded = encoder.encode(data);
+    Vector<unsigned char> treeBytes = encoder.serializeTree();
+
+    Huffman decoder;
+    decoder.loadTree(treeBytes);
+    Vector<unsigned char> decoded = decoder.decode(encoded, originalSize);
+
+    bool match = decoded.length() == data.length();
+    for (int i = 0; match && i < data.length(); i++) {
+        if (decoded[i] != data[i]) match = false;
+    }
+    // The single-symbol tree has a root with only a left child — the
+    // regression this test guards against is the null-right-child case
+    // desyncing the deserializer.
+    cout << (match ? "PASS" : "FAIL") << ": single-symbol tree (root with only a left child) round-trips correctly" << endl;
+    cout << endl;
+}
+
 int main() {
     cout << "======================================" << endl;
     cout << "    Huffman Encoding Test Suite" << endl;
@@ -207,7 +261,9 @@ int main() {
     testBinaryData();
     testRepeatedPattern();
     testEmptyData();
-    
+    testTreeSerializationCrossObject();
+    testTreeSerializationSingleSymbol();
+
     cout << "======================================" << endl;
     cout << "    All Tests Complete" << endl;
     cout << "======================================" << endl;

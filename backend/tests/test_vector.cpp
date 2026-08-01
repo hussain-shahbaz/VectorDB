@@ -60,7 +60,7 @@ void testPopBack() {
     
     cout << "Initial size: " << vec.length() << endl;
     
-    int val = vec[vec.lenght()-1];
+    int val = vec[vec.length()-1];
     vec.pop_back();
     cout << "Popped value: " << val << " (expected: 40)" << endl;
     cout << "New size: " << vec.length() << " (expected: 4)" << endl;

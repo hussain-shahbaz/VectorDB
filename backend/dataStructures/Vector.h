@@ -59,9 +59,6 @@ public:
         return arr[index];
     }
     
-    int lenght() const {
-        return size;
-    }
     int length() const {
         return size;
     }

@@ -109,7 +109,7 @@ private:
     }
 
 public:
-    BTree(int _t) : t(_t), root(nullptr) {}
+    BTree(int _t) : root(nullptr), t(_t) {}
 
     ~BTree() {
         destroyTree(root);
@@ -138,6 +138,16 @@ public:
     // Check if key exists
     bool contains(const T& key) {
         return search(key) != nullptr;
+    }
+
+    // Resets to an empty tree. Note: BTree has no explicit copy
+    // constructor/assignment operator, so `BTree<T> a; a = BTree<T>(t);`
+    // would shallow-copy `root` via the compiler-generated assignment and
+    // leak whatever `a` pointed to before — use clear() instead of
+    // reassignment when you need to empty an existing tree in place.
+    void clear() {
+        destroyTree(root);
+        root = nullptr;
     }
 
     void print() {

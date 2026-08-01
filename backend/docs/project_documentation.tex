@@ -1388,7 +1388,7 @@ public:
 \section*{Appendix C: Project Structure}
 
 \begin{tcolorbox}[
-    title=Project Architecture,
+    title=Project Architecture (as implemented),
     colback=gray!5,
     colframe=blue!75!black,
     fonttitle=\bfseries,
@@ -1400,7 +1400,7 @@ public:
 .3 core/.
 .4 Embedding/.
 .5 Embedding.h.
-.4 Vector/.
+.4 vector/.
 .5 VectorItem.h.
 .5 VectorDB.h.
 .5 Similarity.h.
@@ -1408,7 +1408,7 @@ public:
 .5 GraphANN.h.
 .5 KDANN.h.
 .5 BallANN.h.
-.4 Storage/.
+.4 storage/.
 .5 HuffmanCompression.h.
 .5 BtreeIndex.h.
 .3 dataStructures/.
@@ -1422,20 +1422,37 @@ public:
 .4 Queue.h.
 .4 Stack.h.
 .4 Pair.h.
+.4 AVL.h.
+.3 common/.
+.4 EnvUtil.h.
+.3 external/.
+.4 nlohmann/json.hpp.
+.3 EmbeddingCache.h.
 .3 main.cpp.
-.2 tests/.
-.3 unit\_tests.cpp.
-.3 bench\_ann.cpp.
-.3 test\_dataStructures.cpp.
-.2 data/.
-.3 vectors.dat.
-.3 index.bin.
-.3 metadata.json.
-.2 docs/.
-.3 API\_reference.md.
-.3 Doc\..pdf.
-.2 README.md.
+.3 tests/.
+.4 test\_vector.cpp, test\_heap.cpp, test\_hashmap.cpp, \ldots\ (one per data structure and core class).
+.4 benchmark\_cpp.cpp.
+.4 benchmark\_recall.cpp.
+.3 docs/.
+.4 project\_documentation.tex.
+.4 project\_documentation.pdf.
+.1 CMakeLists.txt.
+.1 run\_tests.sh.
+.1 .github/workflows/ci.yml.
+.1 README.md.
+.1 build-plan.md.
 }
 \end{tcolorbox}
+
+\section*{Appendix D: Implementation Status}
+
+This appendix was added after the initial submission to keep the report honest about what is actually built versus what was originally aspirational. The rest of this document was written describing the intended design; as of this appendix, the implementation has largely caught up to it:
+
+\begin{itemize}
+    \item \textbf{Implemented and tested}: all 11 data structures (including AVL, not in the original count), \texttt{VectorDB}, \texttt{SearchEngine}, \texttt{GraphANN}, \texttt{KDANN}, \texttt{BallANN}, the Gemini embedding client, an in-memory LRU embedding cache, soft delete, vector update, single-key metadata filtering, B-tree + Huffman backed persistence (\texttt{VectorDB::save}/\texttt{load}), and a minimal CLI (\texttt{backend/main.cpp}) supporting seed-and-query, \texttt{save}, \texttt{load}, and \texttt{insert}.
+    \item \textbf{Persistence, honestly scoped}: vectors are Huffman-compressed as one shared block (one tree, better compression, matches how \texttt{Huffman.h}'s \texttt{encode}/\texttt{decode} are actually meant to be used) rather than per-vector blocks with independent byte offsets. The on-disk ``B-tree index'' is therefore a flat id table, not a serialized tree with pointers; the in-memory \texttt{BtreeIndex} built from it \emph{is} a real \texttt{BTree}, and is what every \texttt{VectorDB::get()} call goes through. Loading is eager (whole file decompressed at once) rather than lazy. Per-item metadata is not currently persisted.
+    \item \textbf{Not implemented}: an HTTP API layer, multi-threading, product quantization / IVF indexing, and the distributed/sharding architecture described in the Advanced Features and Future Enhancements sections above — all still aspirational.
+    \item \textbf{On the Performance Analysis numbers earlier in this report}: the query latency, recall, and compression tables in Section 8 were originally illustrative targets, not measurements. Real measurements now exist: \texttt{backend/tests/benchmark\_cpp.cpp} runs the full pipeline against 95 live-embedded words; \texttt{backend/tests/benchmark\_recall.cpp} measures Recall@10 and speedup for \texttt{GraphANN} against \texttt{SearchEngine} on synthetic data from $n=1{,}000$ to $8{,}000$. At that scale, with \texttt{maxConnections=10} and a fixed search budget of $2k$, measured speedup reached roughly $4\times$ (not the $15$--$50\times$ originally claimed) and recall \emph{declined} from about $0.80$ to $0.55$ as $n$ grew — because the search budget is a constant, not scaled to database size. This is a legitimate, useful finding, not a bug: the original targets assumed a tunable \texttt{efSearch} parameter (Section 5.3.4) that the current \texttt{GraphANN} does not yet expose. Widening the search budget as $n$ grows is the natural next step and is tracked in \texttt{build-plan.md}.
+\end{itemize}
 
 \end{document}

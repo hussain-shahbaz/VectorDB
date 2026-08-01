@@ -11,12 +11,15 @@ private:
 public:
     SearchEngine(VectorDB* database): db(database) {}
 
-    Vector<Pair<int,float>> search(const Vector<float>& query, int k){ // KNN
-        
+    Vector<Pair<int,float>> search(const Vector<float>& query, int k, const MetadataFilter* filter = nullptr){ // KNN
+
         MinHeap<Pair<float,int>> topK(k);
 
         for(int i=0;i<db->size();i++){
             VectorItem* item = db->at(i);
+
+            if(item->deleted) continue;
+            if(!item->matchesFilter(filter)) continue;
 
             float similarity = Similarity::cosineSimilarity(query,item->embedding);
 

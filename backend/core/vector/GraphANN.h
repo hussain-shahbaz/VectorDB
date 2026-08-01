@@ -18,11 +18,13 @@ private:
     Vector<Pair<float, int>> findKNearest(int nodeId, int k) {
         VectorItem* node = db->at(nodeId);
         MinHeap<Pair<float, int>> heap(k);
-        
+
         for(int i = 0; i < db->size(); i++) {
             if(i == nodeId) continue;
-            
+
             VectorItem* other = db->at(i);
+            if(other->deleted) continue;
+
             float sim = Similarity::cosineSimilarity(node->embedding, other->embedding);
             
             if(heap.size() < k) {
@@ -46,19 +48,24 @@ public:
     GraphANN(VectorDB* database, int maxConn = 5) : db(database), maxConnections(maxConn) {}
     
     void buildGraph() {
+        // Every position gets a node — even deleted ones — so auto-labels
+        // (sequential, position-based) keep lining up with VectorDB ids.
+        // Deleted items just never get outgoing edges built for them below.
         for(int i = 0; i < db->size(); i++) {
             graph.addNode();
         }
-        
+
         for(int i = 0; i < db->size(); i++) {
+            if(db->at(i)->deleted) continue;
+
             Vector<Pair<float, int>> nearest = findKNearest(i, maxConnections);
-            
+
             for(int j = 0; j < nearest.length(); j++) {
                 graph.addEdge(i, nearest[j].value);
             }
         }
     }
-    
+
     Vector<int> greedySearch(const Vector<float>& query, int entryPoint, int k) {
         HashMap<int, bool> visited;
         MinHeap<Pair<float, int>> candidates(k);
@@ -85,11 +92,13 @@ public:
                 int neighborId = neighbors[i];
                 
                 if(visited.contains(neighborId)) continue;
-                
+
                 visited.insert(neighborId, true);
-                
+
+                if(db->at(neighborId)->deleted) continue; // still marked visited so we don't loop back to it
+
                 float neighborSim = Similarity::cosineSimilarity(query, db->at(neighborId)->embedding);
-                
+
                 if(results.size() < k) {
                     candidates.push(Pair<float, int>(-neighborSim, neighborId));
                     results.push(Pair<float, int>(neighborSim, neighborId));
@@ -115,18 +124,24 @@ public:
         return resultIds;
     }
     
-    Vector<Pair<int, float>> search(const Vector<float>& query, int k) {
+    Vector<Pair<int, float>> search(const Vector<float>& query, int k, const MetadataFilter* filter = nullptr) {
         if(db->size() == 0) return Vector<Pair<int, float>>();
-        
+
         int entryPoint = 0;
+        while(entryPoint < db->size() && db->at(entryPoint)->deleted) entryPoint++;
+        if(entryPoint >= db->size()) return Vector<Pair<int, float>>(); // everything deleted
+
         Vector<int> candidateIds = greedySearch(query, entryPoint, k * 2);
-        
+
         MinHeap<Pair<float, int>> topK(k);
-        
+
         for(int i = 0; i < candidateIds.length(); i++) {
             VectorItem* item = db->at(candidateIds[i]);
+            if(item->deleted) continue; // defensive; greedySearch already filters these out
+            if(!item->matchesFilter(filter)) continue;
+
             float sim = Similarity::cosineSimilarity(query, item->embedding);
-            
+
             if(topK.size() < k) {
                 topK.push(Pair<float, int>(sim, item->id));
             } else if(sim > topK.top().key) {

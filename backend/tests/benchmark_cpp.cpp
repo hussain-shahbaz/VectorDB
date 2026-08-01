@@ -11,7 +11,9 @@
 #include "../core/vector/SearchEngine.h"
 #include "../core/vector/GraphANN.h"
 #include "../core/vector/Similarity.h"
-#include "../core/embedding/Embedding.h"
+#include "../core/Embedding/Embedding.h"
+#include "../common/EnvUtil.h"
+#include "../EmbeddingCache.h"
 
 using namespace std;
 
@@ -50,22 +52,19 @@ int main(){
     //------------------------------------
     // Load API
     //------------------------------------
-    const char* env_key = getenv("OPENAI_API_KEY");
-    
-    env_key = "REDACTED_GEMINI_API_KEY";
+    string apiKey = loadEnvVar("GEMINI_API_KEY");
 
-    if(!env_key){
-        cout << "ERROR: OPENAI_API_KEY not set!\n";
+    if(apiKey.empty()){
+        cout << "ERROR: GEMINI_API_KEY not set (env var or .env file)!\n";
         return 0;
     }
 
-    string apiKey = string(env_key);
     Embedding api(apiKey);
 
     //------------------------------------
     // Word List
     //------------------------------------
-    string words[100] = {
+    string words[] = {
         "happy","sad","angry","computer","science","machine","learning","graph",
         "vector","database","index","fast","slow","memory","storage","data",
         "smart","intelligent","bright","dark","sun","moon","planet","earth",
@@ -79,18 +78,24 @@ int main(){
         "stack","queue","priority","weight","distance","similar","close","near",
         "far","distant","approximate","accurate","precise","true","false","maybe"
     };
+    int wordCount = sizeof(words) / sizeof(words[0]);
 
     //------------------------------------
     // Build DB
     //------------------------------------
     VectorDB db;
+    EmbeddingCache cache("../../.embedding_cache");
 
-    cout << "\nFetching embeddings for 100 words...\n\n";
+    cout << "\nFetching embeddings for " << wordCount << " words...\n\n";
 
-    for(int i = 0; i < 100; i++){
+    for(int i = 0; i < wordCount; i++){
         cout << "Requesting embedding for: " << words[i] << " ... ";
 
-        Vector<float> emb = api.getEmbedding(words[i]);
+        Vector<float> emb;
+        if(!cache.find(words[i], emb)){
+            emb = api.getEmbedding(words[i]);
+            if(emb.length() > 0) cache.put(words[i], emb);
+        }
 
         if(emb.length() == 0){
             cout << "[FAILED]\n";

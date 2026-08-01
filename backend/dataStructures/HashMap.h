@@ -2,6 +2,7 @@
 #define HASHMAP_H
 
 #include <iostream>
+#include <functional>
 #include "Vector.h"
 using namespace std;
 
@@ -34,17 +35,20 @@ private:
         return (double) size / capacity;
     }
 
-    int hashCode(const int& key) const {
-        return key*31;
+    // Generic hash via std::hash<K> — works for int, unsigned char, string,
+    // and anything else std::hash specializes, unlike a hand-rolled `key*31`
+    // which only made sense for integer keys.
+    size_t hashCode(const K& key) const {
+        return std::hash<K>{}(key);
     }
 
-    int hash1(const int& key){
-        return hashCode(key) % capacity;
+    int hash1(const K& key){
+        return (int)(hashCode(key) % capacity);
     }
 
-    int hash2(const int& key){
-        int h = hashCode(key);
-        return 1 + (h%(capacity -1));
+    int hash2(const K& key){
+        size_t h = hashCode(key);
+        return 1 + (int)(h % (capacity - 1));
     }
     
     int probe(const K& key, int attempt){

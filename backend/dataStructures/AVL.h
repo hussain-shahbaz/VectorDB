@@ -187,6 +187,18 @@ public:
     void insert(const T& value){ root = insert(root, nullptr, value); }
     void remove(const T& value){ root = deleteNode(root, value); }
 
+    bool contains(const T& value){
+        AVLNode<T>* node = root;
+        while(node){
+            if(value == node->value) return true;
+            node = (value < node->value) ? node->left : node->right;
+        }
+        return false;
+    }
+
+    int height(){ return height(root); }
+    bool isEmpty() const { return root == nullptr; }
+
     AVLNode<T>* getRoot() { return root; }
     void printTree() { visualizeTree(root, 0); }
 };

@@ -1,5 +1,5 @@
 #include <iostream>
-#include "../backend/dataStructures/Graph.h"
+#include "../dataStructures/Graph.h"
 
 using namespace std;
 
