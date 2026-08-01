@@ -96,6 +96,21 @@ public:
             attempt ++;
         }
     }
+    bool contains(const K& key){
+    int attempt = 0;
+    while(attempt < capacity){
+        int index = probe(key, attempt);
+
+        if(table[index].state == EMPTY)
+            return false;
+
+        if(table[index].state == OCCUPIED && table[index].key == key)
+            return true;
+
+        attempt++;
+    }
+    return false;
+}
 
     V* find(const K& key){
         int attempt = 0;

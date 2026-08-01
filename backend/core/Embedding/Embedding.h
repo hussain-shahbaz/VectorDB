@@ -2,15 +2,19 @@
 #define EMBEDDING_H
 
 #include<iostream>
-#include <curl/curl.h>
 #include <string>
 #include<fstream>
+
+// Fix Windows byte conflict
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
 #include <nlohmann/json.hpp>
 #include "../../dataStructures/Vector.h"
 
-using namespace std;
 using json = nlohmann::json;
 
+#include <curl/curl.h>
 class Embedding {
 private:
     string apiKey;

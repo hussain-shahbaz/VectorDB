@@ -1,4 +1,4 @@
-#include "../core/geminiEmbedding/Embedding.h"
+#include "../core/Embedding/Embedding.h"
 #include <iostream>
 #include <cstdlib>
 

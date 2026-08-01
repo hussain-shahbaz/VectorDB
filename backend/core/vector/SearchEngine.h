@@ -5,14 +5,13 @@
 #include "Similarity.h"
 #include "../../dataStructures/Heap.h"
 #include "../../dataStructures/Pair.h"
-using namespace std;
 class SearchEngine {
 private:
     VectorDB* db;
 public:
     SearchEngine(VectorDB* database): db(database) {}
 
-    Vector<Pair<int,float>> search(const Vector<float>& query, int k){
+    Vector<Pair<int,float>> search(const Vector<float>& query, int k){ // KNN
         
         MinHeap<Pair<float,int>> topK(k);
 
